@@ -91,8 +91,16 @@ export default function Page() {
     const e = ensureEngine();
     if (e) await e.ensureStarted();
     if (el.paused) {
-      await el.play();
-      setIsPlaying(true);
+      try {
+        await el.play();
+        setIsPlaying(true);
+      } catch (err) {
+        // Most common cause: autoplay policy. A user gesture click on the
+        // Play button should resolve this on the next try — log the real
+        // error so it's at least visible in the console.
+        console.error('audio.play() rejected:', err);
+        setIsPlaying(false);
+      }
     } else {
       el.pause();
       setIsPlaying(false);
