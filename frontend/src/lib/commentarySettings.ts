@@ -12,10 +12,12 @@ export interface CommentarySettings {
   openaiKey: string;
 }
 
-// Bumped to v4 because we dropped the `output` field alongside image gen.
-// Older payloads (v1/v2/v3) still merge cleanly with DEFAULT_SETTINGS; any
-// extra keys they carry are simply ignored.
-const STORAGE_KEY = 'spatium:commentary:v4';
+// Kept at v1 across the mode/output additions and removals. The reader
+// merges stored keys with DEFAULT_SETTINGS, so any fields that no longer
+// exist are silently ignored and missing fields fall back to defaults.
+// Bumping the key wiped live users' settings (including `enabled`), which
+// made the commentary panel look like it had disappeared.
+const STORAGE_KEY = 'spatium:commentary:v1';
 
 const DEFAULT_SETTINGS: CommentarySettings = {
   enabled: false,

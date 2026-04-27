@@ -99,8 +99,12 @@ export function SpatialScene({
         {preset === 'concert_hall' && <ConcertHall />}
         {preset === 'salon' && <Salon />}
 
-        {/* Particles are scaled per-space so they don't overpower smaller rooms. */}
+        {/* Particles are scaled per-space so they don't overpower smaller rooms.
+            Keyed by preset so switching spaces fully re-mounts the points +
+            shaderMaterial — keeps the uniform refs the GPU reads from in sync
+            with the useFrame closure writing to them. */}
         <TrebleParticles
+          key={preset}
           engine={engine}
           color={palette.accent}
           radius={WALK_BOUNDS[preset].radius * 0.8}

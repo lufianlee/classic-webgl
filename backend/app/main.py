@@ -120,7 +120,7 @@ class CommentaryRequest(BaseModel):
             "(which uses AWS_BEARER_TOKEN_BEDROCK on the server)."
         ),
     )
-    max_tokens: int = Field(4096, ge=256, le=8192)
+    max_tokens: int = Field(8192, ge=256, le=8192)
 
 
 def _safe_extension(url: str, content_type: str | None) -> str:

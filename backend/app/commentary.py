@@ -387,9 +387,13 @@ async def _call_openai(
 def _extract_json(raw: str) -> dict[str, Any]:
     """Pull the first JSON object out of the model's raw text response.
 
-    Some providers wrap JSON in code fences even when instructed not to;
-    we tolerate that. Anything else (multiple objects, commentary before
-    the object) raises.
+    Tolerates two kinds of imperfect output:
+      1. Markdown fences (```json ... ```) even though the prompt forbids them.
+      2. Truncation mid-segment when `max_tokens` runs out — the tail is
+         typically an unterminated string inside a `segments` array. We try
+         a strict parse first; on failure, we truncate to the last complete
+         segment object and repair the enclosing brackets so the rest of the
+         piece still gets a usable commentary.
     """
     raw = raw.strip()
     # Strip ```json … ``` fences if present.
@@ -398,9 +402,34 @@ def _extract_json(raw: str) -> dict[str, Any]:
         raw = fence.group(1).strip()
     start = raw.find("{")
     end = raw.rfind("}")
-    if start < 0 or end < 0 or end <= start:
+    if start < 0:
         raise ValueError("Model output contained no JSON object")
-    return json.loads(raw[start : end + 1])
+
+    if end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            pass  # fall through to truncation recovery
+
+    # --- Truncation recovery ---------------------------------------------
+    # The LLM was cut off mid-string. Find the last "},\n" boundary inside
+    # a segments array — that marks the last object that CAN parse cleanly.
+    body = raw[start:]
+    last_seg_close = body.rfind("},")
+    if last_seg_close < 0:
+        raise ValueError(
+            "Model output contained no JSON object (and no complete "
+            "segment to salvage)"
+        )
+    # Keep everything up to that closing brace, then close the segments
+    # array and the outer object.
+    salvaged = body[: last_seg_close + 1] + "\n]\n}"
+    try:
+        return json.loads(salvaged)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Could not recover truncated JSON: {e}"
+        ) from e
 
 
 def _coerce_segments(
@@ -434,7 +463,7 @@ async def generate_commentary(
     language: str = "ko",
     title: str | None = None,
     api_key: str | None = None,
-    max_tokens: int = 4096,
+    max_tokens: int = 8192,
 ) -> CommentaryResult:
     digest = _compress_features(analysis)
     system, user = _build_messages(digest, title=title, language=language)

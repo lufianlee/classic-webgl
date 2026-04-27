@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { AudioEngine } from '@/lib/audio';
@@ -107,45 +107,52 @@ export function TrebleParticles({
     return g;
   }, [radius, height, density]);
 
-  const uniforms = useMemo(
-    () => ({
+  // Uniforms live in a ref so the reference survives preset changes.
+  // useMemo with deps would create a NEW uniforms object when height
+  // changed, but the <shaderMaterial> below captures the object at mount
+  // time — the stale reference is what the GPU keeps reading, so our
+  // useFrame writes would silently go to a detached object and the
+  // animation would freeze. Keep the same object forever; mutate fields.
+  const uniformsRef = useRef<{ [k: string]: { value: unknown } } | null>(null);
+  if (uniformsRef.current === null) {
+    uniformsRef.current = {
       uTime: { value: 0 },
       uBass: { value: 0 },
       uMid: { value: 0 },
       uTreble: { value: 0 },
-      uPulse: { value: 0 }, // spikes to ~1 on beats, decays fast
+      uPulse: { value: 0 },
       uSize: { value: 22 },
       uHeight: { value: height },
       uColor: { value: color.clone() },
       uPulseColor: { value: new THREE.Color('#ffeccc') },
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [height],
-  );
+    };
+  }
+  const uniforms = uniformsRef.current;
+
+  // Update `uHeight` when the preset changes without recreating the uniforms.
+  useEffect(() => {
+    (uniforms.uHeight as { value: number }).value = height;
+  }, [height, uniforms]);
 
   const pointsRef = useRef<THREE.Points>(null);
   const rmsHistoryRef = useRef<number>(0);
 
   useFrame((_, delta) => {
-    uniforms.uTime.value += delta;
-    uniforms.uColor.value.lerp(color, 0.06);
+    const u = uniforms as {
+      uTime: { value: number };
+      uBass: { value: number };
+      uMid: { value: number };
+      uTreble: { value: number };
+      uPulse: { value: number };
+      uColor: { value: THREE.Color };
+    };
+    u.uTime.value += delta;
+    u.uColor.value.lerp(color, 0.06);
     if (engine) {
       const f = engine.sample();
-      uniforms.uBass.value = THREE.MathUtils.lerp(
-        uniforms.uBass.value,
-        f.bassLevel,
-        0.2,
-      );
-      uniforms.uMid.value = THREE.MathUtils.lerp(
-        uniforms.uMid.value,
-        f.midLevel,
-        0.15,
-      );
-      uniforms.uTreble.value = THREE.MathUtils.lerp(
-        uniforms.uTreble.value,
-        f.trebleLevel,
-        0.15,
-      );
+      u.uBass.value = THREE.MathUtils.lerp(u.uBass.value, f.bassLevel, 0.2);
+      u.uMid.value = THREE.MathUtils.lerp(u.uMid.value, f.midLevel, 0.15);
+      u.uTreble.value = THREE.MathUtils.lerp(u.uTreble.value, f.trebleLevel, 0.15);
 
       // Beat gate: detect an RMS jump beyond the running average. A positive
       // derivative above a threshold fires a short pulse; the pulse then
@@ -155,9 +162,9 @@ export function TrebleParticles({
       const jump = rms - prev;
       rmsHistoryRef.current = prev * 0.85 + rms * 0.15;
       if (jump > 0.06) {
-        uniforms.uPulse.value = Math.min(1, uniforms.uPulse.value + jump * 3);
+        u.uPulse.value = Math.min(1, u.uPulse.value + jump * 3);
       }
-      uniforms.uPulse.value *= Math.pow(0.12, delta); // ~0.12/sec decay
+      u.uPulse.value *= Math.pow(0.12, delta); // ~0.12/sec decay
     }
   });
 

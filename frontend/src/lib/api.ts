@@ -78,7 +78,7 @@ export async function requestCommentary(
   const body: Record<string, unknown> = {
     provider: init.provider,
     language: init.language ?? 'ko',
-    max_tokens: init.maxTokens ?? 4096,
+    max_tokens: init.maxTokens ?? 8192,
   };
   if (init.url) body.url = init.url;
   if (init.uploadHash) body.upload_hash = init.uploadHash;
