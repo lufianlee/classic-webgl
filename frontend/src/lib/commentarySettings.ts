@@ -12,7 +12,10 @@ export interface CommentarySettings {
   openaiKey: string;
 }
 
-const STORAGE_KEY = 'spatium:commentary:v1';
+// Bumped to v4 because we dropped the `output` field alongside image gen.
+// Older payloads (v1/v2/v3) still merge cleanly with DEFAULT_SETTINGS; any
+// extra keys they carry are simply ignored.
+const STORAGE_KEY = 'spatium:commentary:v4';
 
 const DEFAULT_SETTINGS: CommentarySettings = {
   enabled: false,

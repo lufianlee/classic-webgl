@@ -17,32 +17,15 @@ const ROOM_H = 5.5;
 
 export function Salon() {
   const floorMat = usePBRMaterial('wood_floor_worn', {
-    repeat: [ROOM_W / 1.2, ROOM_D / 1.2],
-    color: '#7a5230',
+    repeat: [ROOM_W / 0.9, ROOM_D / 0.9],
+    color: '#6a4525',
   });
 
-  // Parquet pattern: alternating diagonal squares.
+  // Parquet — we rely entirely on the PBR wood_floor_worn texture (which
+  // already has plank grain and grout) rather than layering colored planes
+  // on top. Overlapping two floor planes at the same y caused z-fighting
+  // shimmer that polygonOffset couldn't reliably hide.
   const parquetTiles: JSX.Element[] = [];
-  const tile = 1.2;
-  for (let x = -ROOM_W / 2; x < ROOM_W / 2; x += tile) {
-    for (let z = -ROOM_D / 2; z < ROOM_D / 2; z += tile) {
-      const light = (Math.floor(x / tile) + Math.floor(z / tile)) % 2 === 0;
-      parquetTiles.push(
-        <mesh
-          key={`tile-${x.toFixed(2)}-${z.toFixed(2)}`}
-          position={[x + tile / 2, 0.01, z + tile / 2]}
-          rotation={[-Math.PI / 2, 0, Math.PI / 4]}
-        >
-          <planeGeometry args={[tile * 0.9, tile * 0.9]} />
-          <meshStandardMaterial
-            color={light ? '#8a6238' : '#5a3a20'}
-            roughness={0.45}
-            metalness={0.1}
-          />
-        </mesh>,
-      );
-    }
-  }
 
   // Wainscot: lower wall paneling with gilt frames.
   const wainscots: JSX.Element[] = [];
@@ -185,26 +168,154 @@ export function Salon() {
         />
       </mesh>
 
-      {/* Two candelabra flanking the mirror */}
+      {/* Two candelabra flanking the mirror — 5-arm branches with higher detail */}
       {[-2.2, 2.2].map((x, i) => (
         <group key={`cand-${i}`} position={[x, 2.2, ROOM_D / 2 - 0.2]}>
+          {/* Central shaft */}
           <mesh>
-            <cylinderGeometry args={[0.05, 0.05, 0.8, 8]} />
+            <cylinderGeometry args={[0.05, 0.05, 0.8, 24]} />
             <meshStandardMaterial color="#c89a55" metalness={0.6} roughness={0.3} />
           </mesh>
-          {[-0.25, 0, 0.25].map((ox, k) => (
-            <mesh key={`flame-${k}`} position={[ox, 0.5, 0]}>
-              <sphereGeometry args={[0.05, 8, 8]} />
-              <meshStandardMaterial
-                color="#ffe8b4"
-                emissive="#ffc773"
-                emissiveIntensity={4}
-              />
-            </mesh>
+          {/* Decorative knop midway */}
+          <mesh position={[0, 0.15, 0]}>
+            <sphereGeometry args={[0.09, 24, 16]} />
+            <meshStandardMaterial color="#d6a745" metalness={0.7} roughness={0.3} />
+          </mesh>
+          {/* Five curved arms holding candles */}
+          {[-0.32, -0.16, 0, 0.16, 0.32].map((ox, k) => (
+            <group key={`arm-${k}`} position={[ox, 0.42, 0]}>
+              {/* Arm curl */}
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.08, 0.012, 10, 20, Math.PI]} />
+                <meshStandardMaterial color="#c89a55" metalness={0.6} roughness={0.3} />
+              </mesh>
+              {/* Candle */}
+              <mesh position={[0, 0.08, 0]}>
+                <cylinderGeometry args={[0.025, 0.025, 0.14, 12]} />
+                <meshStandardMaterial color="#fff5d6" />
+              </mesh>
+              {/* Flame */}
+              <mesh position={[0, 0.22, 0]}>
+                <sphereGeometry args={[0.055, 16, 16]} />
+                <meshStandardMaterial
+                  color="#ffe8b4"
+                  emissive="#ffc773"
+                  emissiveIntensity={4}
+                />
+              </mesh>
+            </group>
           ))}
-          <pointLight position={[0, 0.5, 0]} intensity={2.5} distance={5} color="#ffc77a" />
+          <pointLight position={[0, 0.5, 0]} intensity={3.5} distance={6} color="#ffc77a" />
         </group>
       ))}
+
+      {/* Tall French windows on the long wall — opposite the mirror.
+          Emissive cream glass to simulate the cool outdoor light. */}
+      {[-3.5, 0, 3.5].map((x, i) => (
+        <group key={`win-${i}`} position={[x, 2.8, -ROOM_D / 2 + 0.12]}>
+          {/* Frame */}
+          <mesh>
+            <planeGeometry args={[1.8, 3.5]} />
+            <meshStandardMaterial color="#d7c7a8" roughness={0.6} metalness={0.15} />
+          </mesh>
+          {/* Glass panes (2x4 grid) */}
+          {Array.from({ length: 8 }).map((_, k) => {
+            const col = k % 2;
+            const row = Math.floor(k / 2);
+            return (
+              <mesh
+                key={`pane-${k}`}
+                position={[(col - 0.5) * 0.7, (row - 1.5) * 0.7, 0.02]}
+              >
+                <planeGeometry args={[0.62, 0.62]} />
+                <meshStandardMaterial
+                  color="#c8d8e4"
+                  emissive="#a8c0d4"
+                  emissiveIntensity={0.8}
+                  roughness={0.2}
+                  metalness={0.15}
+                />
+              </mesh>
+            );
+          })}
+          {/* Mullions */}
+          <mesh position={[0, 0, 0.03]}>
+            <boxGeometry args={[0.04, 3.5, 0.03]} />
+            <meshStandardMaterial color="#5a4530" roughness={0.6} />
+          </mesh>
+          {[-1.05, -0.35, 0.35, 1.05].map((y, mi) => (
+            <mesh key={`hm-${mi}`} position={[0, y, 0.03]}>
+              <boxGeometry args={[1.8, 0.04, 0.03]} />
+              <meshStandardMaterial color="#5a4530" roughness={0.6} />
+            </mesh>
+          ))}
+          {/* Light spilling in */}
+          <pointLight position={[0, 0, 0.8]} intensity={6} distance={9} color="#a8c0d4" />
+        </group>
+      ))}
+
+      {/* Velvet drapes on either side of each window */}
+      {[-4.5, -2.5, -1.0, 1.0, 2.5, 4.5].map((x, i) => (
+        <mesh key={`drape-${i}`} position={[x, 2.8, -ROOM_D / 2 + 0.22]}>
+          <boxGeometry args={[0.2, 3.8, 0.1]} />
+          <meshStandardMaterial color="#6a1a1a" roughness={0.9} />
+        </mesh>
+      ))}
+
+      {/* Porcelain vase with flowers on a side table near the windows */}
+      <group position={[-4, 0, -5]}>
+        {/* Side table top */}
+        <mesh position={[0, 0.85, 0]} castShadow>
+          <cylinderGeometry args={[0.4, 0.4, 0.05, 32]} />
+          <meshStandardMaterial color="#4a2818" roughness={0.5} metalness={0.15} />
+        </mesh>
+        {/* Table leg */}
+        <mesh position={[0, 0.42, 0]} castShadow>
+          <cylinderGeometry args={[0.04, 0.08, 0.85, 16]} />
+          <meshStandardMaterial color="#2a1608" roughness={0.6} />
+        </mesh>
+        {/* Tripod base */}
+        {[0, 1, 2].map((k) => {
+          const a = (k / 3) * Math.PI * 2;
+          return (
+            <mesh
+              key={`tb-${k}`}
+              position={[Math.cos(a) * 0.15, 0.05, Math.sin(a) * 0.15]}
+              rotation={[0, a, 0]}
+            >
+              <boxGeometry args={[0.25, 0.04, 0.05]} />
+              <meshStandardMaterial color="#2a1608" roughness={0.6} />
+            </mesh>
+          );
+        })}
+        {/* Vase body — porcelain blue-and-white */}
+        <mesh position={[0, 1.08, 0]}>
+          <sphereGeometry args={[0.12, 32, 24]} />
+          <meshStandardMaterial color="#e8f0f8" roughness={0.2} metalness={0.15} />
+        </mesh>
+        <mesh position={[0, 1.25, 0]}>
+          <cylinderGeometry args={[0.06, 0.09, 0.1, 24]} />
+          <meshStandardMaterial color="#e8f0f8" roughness={0.2} metalness={0.15} />
+        </mesh>
+        {/* Flower stems (just colored spheres — stylized) */}
+        {[
+          ['#c8442a', 0.04, 0.18],
+          ['#e8c060', -0.06, 0.14],
+          ['#a8285a', 0.03, 0.22],
+          ['#d88a6a', -0.04, 0.17],
+          ['#5a6ac8', 0.06, 0.12],
+        ].map(([c, dx, dy], k) => (
+          <mesh key={`flr-${k}`} position={[dx as number, 1.3 + (dy as number), 0]}>
+            <sphereGeometry args={[0.05, 16, 12]} />
+            <meshStandardMaterial
+              color={c as string}
+              emissive={c as string}
+              emissiveIntensity={0.2}
+              roughness={0.7}
+            />
+          </mesh>
+        ))}
+      </group>
 
       {/* Lighting: candlelight is warm, soft, everywhere */}
       <ambientLight intensity={0.3} color="#ffd8a0" />

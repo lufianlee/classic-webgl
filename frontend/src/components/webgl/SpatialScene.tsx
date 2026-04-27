@@ -105,7 +105,7 @@ export function SpatialScene({
           color={palette.accent}
           radius={WALK_BOUNDS[preset].radius * 0.8}
           height={preset === 'cathedral' ? 24 : preset === 'concert_hall' ? 12 : 5}
-          density={preset === 'cathedral' ? 2200 : preset === 'concert_hall' ? 1200 : 500}
+          density={preset === 'cathedral' ? 3300 : preset === 'concert_hall' ? 1800 : 750}
         />
       </Suspense>
 

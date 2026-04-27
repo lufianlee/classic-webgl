@@ -45,7 +45,10 @@ export interface CommentaryResponse {
   model: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+// In dev we hit the backend directly on :8000. In production the frontend
+// reverse-proxies /api/* via next.config.mjs, so leaving this empty uses a
+// same-origin relative path — no CORS needed.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 /** Proxied playback URL — avoids CORS issues that silence Web Audio graphs. */
 export function streamUrl(sourceUrl: string): string {
@@ -75,7 +78,7 @@ export async function requestCommentary(
   const body: Record<string, unknown> = {
     provider: init.provider,
     language: init.language ?? 'ko',
-    max_tokens: init.maxTokens ?? 2048,
+    max_tokens: init.maxTokens ?? 4096,
   };
   if (init.url) body.url = init.url;
   if (init.uploadHash) body.upload_hash = init.uploadHash;

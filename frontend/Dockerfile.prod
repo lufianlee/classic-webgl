@@ -1,0 +1,36 @@
+#
+# Production frontend image for Elastic Beanstalk.
+#
+# Stage 1: install + build (standalone output)
+# Stage 2: tiny runtime (just the standalone server + public/ + .next/static)
+#
+
+FROM node:20-alpine AS deps
+RUN apk add --no-cache curl
+WORKDIR /app
+COPY package.json ./
+RUN npm install --no-audit --no-fund --loglevel=error
+
+FROM node:20-alpine AS builder
+RUN apk add --no-cache curl
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Fetch PBR textures so they're baked into /app/public/textures and served
+# by Next's static handler at runtime.
+RUN sh scripts/fetch-textures.sh
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# standalone output includes a minimal node_modules + server.js
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]

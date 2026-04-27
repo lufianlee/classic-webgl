@@ -36,7 +36,7 @@ export function GrandPiano({
         [0, 0, 1.55],
       ] as [number, number, number][]).map(([x, , z], i) => (
         <mesh key={`leg-${i}`} position={[x, 0.45, z]} castShadow>
-          <cylinderGeometry args={[0.06, 0.09, 0.9, 10]} />
+          <cylinderGeometry args={[0.06, 0.09, 0.9, 24]} />
           <meshStandardMaterial color="#0a0806" roughness={0.3} metalness={0.15} />
         </mesh>
       ))}
@@ -61,7 +61,7 @@ export function GrandPiano({
         castShadow
         receiveShadow
       >
-        <cylinderGeometry args={[0.75, 0.75, 0.22, 32, 1, false, Math.PI, Math.PI]} />
+        <cylinderGeometry args={[0.75, 0.75, 0.22, 64, 1, false, Math.PI, Math.PI]} />
         <meshStandardMaterial color="#0b0906" roughness={0.28} metalness={0.35} />
       </mesh>
       {/* Narrow treble tail: smaller half on the right that tapers into the body. */}
@@ -89,7 +89,7 @@ export function GrandPiano({
           castShadow
           receiveShadow
         >
-          <cylinderGeometry args={[0.75, 0.75, 0.05, 32, 1, false, Math.PI, Math.PI]} />
+          <cylinderGeometry args={[0.75, 0.75, 0.05, 64, 1, false, Math.PI, Math.PI]} />
           <meshStandardMaterial color="#0a0806" roughness={0.15} metalness={0.5} />
         </mesh>
       </group>
@@ -97,40 +97,42 @@ export function GrandPiano({
       {/* Prop stick holding the lid open */}
       {lidOpen && (
         <mesh position={[0, 1.45, 0.2]} rotation={[0.15, 0, 0.35]} castShadow>
-          <cylinderGeometry args={[0.015, 0.015, 1.1, 6]} />
+          <cylinderGeometry args={[0.015, 0.015, 1.1, 16]} />
           <meshStandardMaterial color="#b68a3d" metalness={0.7} roughness={0.3} />
         </mesh>
       )}
 
-      {/* Keyboard: white keys as a single slab, thin black-key stripes on top. */}
+      {/* Keyboard: white keys as a single slab, thin black-key stripes on top.
+          7 octaves × 7 whites = 49 whites across the 1.45 m slab, so one
+          white-key unit = 1.45 / 49 ≈ 0.0296 m. Black keys sit at fractional
+          unit offsets within an octave: C#=0.5, D#=1.5, F#=3.5, G#=4.5, A#=5.5. */}
       <group position={[0, 1.11, -0.35]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[1.45, 0.05, 0.32]} />
           <meshStandardMaterial color="#f4ead5" roughness={0.3} metalness={0.05} />
         </mesh>
-        {/* Sharp/flat keys */}
         {Array.from({ length: 35 }, (_, i) => {
-          // Pattern of black keys in an octave: positions relative to 7 whites.
-          // A simple approximation — skip E–F and B–C gaps.
           const octave = Math.floor(i / 5);
           const within = i % 5;
-          const xBase = -0.7 + (octave * 7 + [0, 1, 3, 4, 5][within]) * 0.04;
+          const unit = 1.45 / 49;
+          const blackOffsets = [0.5, 1.5, 3.5, 4.5, 5.5];
+          // Slab spans x = -0.725 .. +0.725; add 0.5 unit so the first white
+          // key sits centered at -0.725 + 0.5·unit.
+          const xBase = -0.725 + unit * (octave * 7 + blackOffsets[within] + 0.5);
           return (
-            <mesh
-              key={`bk-${i}`}
-              position={[xBase, 0.03, -0.06]}
-            >
-              <boxGeometry args={[0.025, 0.025, 0.18]} />
+            <mesh key={`bk-${i}`} position={[xBase, 0.038, -0.06]}>
+              <boxGeometry args={[unit * 0.6, 0.025, 0.18]} />
               <meshStandardMaterial color="#060403" roughness={0.4} />
             </mesh>
           );
         })}
       </group>
 
-      {/* Key cheek blocks at each end of the keyboard */}
-      {[-0.77, 0.77].map((x, i) => (
+      {/* Key cheek blocks at each end of the keyboard. Slab ends at ±0.725;
+          cheek sits just outside that, against the case (±0.775). */}
+      {[-0.755, 0.755].map((x, i) => (
         <mesh key={`cheek-${i}`} position={[x, 1.11, -0.32]} castShadow>
-          <boxGeometry args={[0.06, 0.08, 0.4]} />
+          <boxGeometry args={[0.04, 0.08, 0.4]} />
           <meshStandardMaterial color="#0a0806" roughness={0.35} metalness={0.2} />
         </mesh>
       ))}

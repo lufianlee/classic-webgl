@@ -189,14 +189,24 @@ def _build_messages(
     title: str | None,
     language: str,
 ) -> tuple[str, str]:
-    """Build (system_prompt, user_message) for the LLM."""
+    """Build (system_prompt, user_message) for the LLM.
+
+    Returns structured, time-synced segments grounded in the numeric
+    audio features (tempo, energy envelopes, dominant pitches, beats).
+    """
     lang_label = _language_name(language)
+    title_line = f'Title/source: "{title}"\n' if title else ""
+    digest_json = json.dumps(digest, ensure_ascii=False)
+
     # Language instruction appears TWICE (system + user) because models often
     # default to the language of the system prompt. Restating it up top with
     # an explicit, unambiguous name is what actually moves the needle.
     system = (
-        f"You are a musicologist writing *concise*, insight-driven commentary "
-        f"on a piece of classical music based on extracted audio features.\n\n"
+        f"You are a musicologist writing substantive, insight-driven "
+        f"commentary on a piece of classical music based on extracted "
+        f"audio features. Your commentary should feel like a thoughtful "
+        f"program note — rich, specific, and grounded in what the "
+        f"numeric features show.\n\n"
         f"ALL human-readable output fields (`overview`, `heading`, `text`) MUST "
         f"be written in {lang_label}. Do NOT output English if the requested "
         f"language is not English. JSON keys (\"overview\", \"segments\", "
@@ -207,32 +217,49 @@ def _build_messages(
         f"segments. Ground every claim in the numeric features — never "
         f"invent composer names, opus numbers, or performers."
     )
-
     schema = {
-        "overview": "2-3 sentence description of the overall character",
+        "overview": (
+            "4-6 sentence description of the overall character: the "
+            "piece's trajectory, tonal world, dynamic range, and what "
+            "makes it distinctive"
+        ),
         "segments": [
             {
                 "start": "number, seconds",
                 "end": "number, seconds",
                 "heading": "short title, 3-6 words",
-                "text": "1-2 sentences of commentary anchored to the features",
+                "text": (
+                    "3-5 sentences of commentary anchored to the "
+                    "features: what is happening harmonically, "
+                    "rhythmically, and texturally; what emotional "
+                    "effect it produces; how it relates to adjacent "
+                    "segments"
+                ),
             }
         ],
     }
-
-    title_line = f'Title/source: "{title}"\n' if title else ""
-
     user = (
         f"{title_line}"
         f"Write every human-readable field in {lang_label}. "
         f"This is a hard requirement — any English output in overview/heading/text "
         f"(when the requested language is not English) is a failure.\n"
-        f"Produce between 4 and 8 segments covering the entire duration. "
-        f"Segment boundaries SHOULD align with natural changes in the feature "
-        f"windows (tempo shifts, energy changes, register changes). "
-        f"Coalesce adjacent similar windows into one segment rather than "
-        f"producing one segment per window.\n\n"
-        f"Audio feature digest (JSON):\n{json.dumps(digest, ensure_ascii=False)}\n\n"
+        f"Produce between 8 and 14 segments covering the entire duration "
+        f"(roughly one segment per 20–45 seconds depending on the piece). "
+        f"Segment boundaries SHOULD align with natural changes in the "
+        f"feature windows (tempo shifts, energy changes, register "
+        f"changes, harmonic turns). Coalesce adjacent similar windows "
+        f"into one segment rather than producing one per window.\n\n"
+        f"For each segment's `text`, write 3–5 full sentences. Go "
+        f"beyond naming what's happening — interpret it. Why does the "
+        f"energy rise here? What does the register shift suggest? How "
+        f"does this moment function within the piece's arc? Anchor "
+        f"every claim to a specific numeric cue from the digest "
+        f"(tempo, bass/mid/treble levels, beat density, spectral "
+        f"centroid) but weave the analysis into readable prose, not a "
+        f"bulleted list of numbers.\n\n"
+        f"The `overview` should be 4–6 sentences — a genuine program-"
+        f"note style paragraph, not a one-line summary.\n\n"
+        f"Audio feature digest (JSON):\n{digest_json}\n\n"
         f"Respond with JSON matching this schema:\n"
         f"{json.dumps(schema, ensure_ascii=False)}"
     )
@@ -407,7 +434,7 @@ async def generate_commentary(
     language: str = "ko",
     title: str | None = None,
     api_key: str | None = None,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
 ) -> CommentaryResult:
     digest = _compress_features(analysis)
     system, user = _build_messages(digest, title=title, language=language)
@@ -427,12 +454,12 @@ async def generate_commentary(
         raise ValueError(f"Unknown provider: {provider}")
 
     parsed = _extract_json(raw)
+    overview = str(parsed.get("overview", "")).strip()
     segments = _coerce_segments(parsed, float(analysis.get("duration", 0)))
     if not segments:
         raise RuntimeError("LLM returned no usable segments")
-
     return CommentaryResult(
-        overview=str(parsed.get("overview", "")).strip(),
+        overview=overview,
         segments=segments,
         provider=provider,
         model=chosen_model,

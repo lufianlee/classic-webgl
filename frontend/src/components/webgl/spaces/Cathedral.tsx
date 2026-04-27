@@ -73,29 +73,30 @@ export function Cathedral() {
         <group key={`bay-${i}`}>
           {[-1, 1].map((side) => (
             <group key={`col-${side}`}>
-              {/* Clustered column — a cluster of 4 shafts around a central drum */}
+              {/* Clustered column — a cluster of 8 shafts around a central drum.
+                  Radial segments bumped to 48 for smooth silhouettes. */}
               <mesh
                 position={[side * NAVE_HALF_WIDTH, PILLAR_HEIGHT / 2, z]}
                 castShadow
                 receiveShadow
               >
-                <cylinderGeometry args={[0.8, 0.85, PILLAR_HEIGHT, 24]} />
+                <cylinderGeometry args={[0.8, 0.85, PILLAR_HEIGHT, 48]} />
                 <primitive object={pillarMat} attach="material" />
               </mesh>
-              {[0, 1, 2, 3].map((k) => {
-                const a = (k / 4) * Math.PI * 2;
+              {Array.from({ length: 8 }).map((_, k) => {
+                const a = (k / 8) * Math.PI * 2;
                 return (
                   <mesh
                     key={`shaft-${k}`}
                     position={[
-                      side * NAVE_HALF_WIDTH + Math.cos(a) * 0.75,
+                      side * NAVE_HALF_WIDTH + Math.cos(a) * 0.78,
                       PILLAR_HEIGHT / 2,
-                      z + Math.sin(a) * 0.75,
+                      z + Math.sin(a) * 0.78,
                     ]}
                     castShadow
                   >
                     <cylinderGeometry
-                      args={[0.22, 0.22, PILLAR_HEIGHT, 12]}
+                      args={[0.18, 0.18, PILLAR_HEIGHT, 24]}
                     />
                     <meshStandardMaterial
                       color="#d6c8aa"
@@ -105,48 +106,126 @@ export function Cathedral() {
                   </mesh>
                 );
               })}
-              {/* Capital */}
+              {/* Capital — two-tier moulding */}
               <mesh
-                position={[side * NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.3, z]}
+                position={[side * NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.25, z]}
                 castShadow
               >
-                <cylinderGeometry args={[1.3, 0.95, 0.6, 24]} />
+                <cylinderGeometry args={[1.3, 0.95, 0.5, 48]} />
                 <meshStandardMaterial color="#b6a482" roughness={0.55} />
+              </mesh>
+              <mesh
+                position={[side * NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.62, z]}
+                castShadow
+              >
+                <cylinderGeometry args={[1.45, 1.25, 0.25, 48]} />
+                <meshStandardMaterial color="#c8b894" roughness={0.5} />
+              </mesh>
+              {/* Base moulding at the floor */}
+              <mesh
+                position={[side * NAVE_HALF_WIDTH, 0.3, z]}
+                castShadow
+              >
+                <cylinderGeometry args={[1.15, 1.25, 0.6, 48]} />
+                <meshStandardMaterial color="#8a7a5e" roughness={0.7} />
               </mesh>
             </group>
           ))}
 
-          {/* Pointed arch across the bay: two torus halves meeting at an apex */}
-          {[-1, 1].map((side) => (
-            <mesh
-              key={`arch-${side}`}
-              position={[side * (NAVE_HALF_WIDTH * 0.55), PILLAR_HEIGHT + 0.8, z]}
-              rotation={[0, 0, side > 0 ? -Math.PI / 6 : Math.PI / 6]}
-            >
-              <torusGeometry args={[NAVE_HALF_WIDTH * 0.8, 0.32, 12, 20, Math.PI / 2]} />
-              <meshStandardMaterial color="#a8977a" roughness={0.6} />
-            </mesh>
-          ))}
+          {/* Pointed (Gothic) transverse arch — two 60° torus arcs whose
+              curvature centers are at the OPPOSITE pillar top, so the arc
+              endpoints land exactly on the near pillar top and the apex.
+              Radius = nave width; apex y = PILLAR_HEIGHT + NAVE_HALF_WIDTH·√3
+              ≈ pillar_top + 10.4 m. */}
+          {/* Left half-arch (center of curvature at +NAVE_HALF_WIDTH) */}
+          <mesh
+            position={[NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.85, z]}
+            rotation={[0, Math.PI, 0]}
+          >
+            <torusGeometry
+              args={[NAVE_HALF_WIDTH * 2, 0.35, 24, 56, Math.PI / 3]}
+            />
+            <meshStandardMaterial color="#a8977a" roughness={0.6} />
+          </mesh>
+          {/* Right half-arch (center of curvature at -NAVE_HALF_WIDTH) */}
+          <mesh position={[-NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.85, z]}>
+            <torusGeometry
+              args={[NAVE_HALF_WIDTH * 2, 0.35, 24, 56, Math.PI / 3]}
+            />
+            <meshStandardMaterial color="#a8977a" roughness={0.6} />
+          </mesh>
         </group>
       ))}
 
-      {/* Ribbed vault: a series of pointed-arch rings overhead */}
+      {/* Ribbed vault: transverse ribs overhead spring from the same pillar
+          tops as the arches and meet at an apex higher up. Same pointed-arch
+          math as below — center of curvature at opposite pillar top. */}
       {bayPositions.map((z, i) => (
         <group key={`vault-${i}`}>
-          {[-1, 1].map((side) => (
-            <mesh
-              key={`rib-${side}`}
-              position={[0, VAULT_APEX - 6, z]}
-              rotation={[Math.PI / 2, 0, side > 0 ? Math.PI / 5 : -Math.PI / 5]}
-            >
-              <torusGeometry
-                args={[NAVE_HALF_WIDTH + 2, 0.2, 8, 16, Math.PI / 2]}
-              />
-              <meshStandardMaterial color="#958467" roughness={0.7} />
-            </mesh>
-          ))}
+          {/* Left transverse rib */}
+          <mesh
+            position={[NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.85, z]}
+            rotation={[0, Math.PI, 0]}
+          >
+            <torusGeometry
+              args={[NAVE_HALF_WIDTH * 2, 0.22, 16, 48, Math.PI / 3]}
+            />
+            <meshStandardMaterial color="#958467" roughness={0.7} />
+          </mesh>
+          {/* Right transverse rib */}
+          <mesh position={[-NAVE_HALF_WIDTH, PILLAR_HEIGHT + 0.85, z]}>
+            <torusGeometry
+              args={[NAVE_HALF_WIDTH * 2, 0.22, 16, 48, Math.PI / 3]}
+            />
+            <meshStandardMaterial color="#958467" roughness={0.7} />
+          </mesh>
+          {/* Boss at the vault apex (keystone) */}
+          <mesh
+            position={[0, PILLAR_HEIGHT + 0.85 + NAVE_HALF_WIDTH * Math.sqrt(3), z]}
+          >
+            <sphereGeometry args={[0.38, 24, 24]} />
+            <meshStandardMaterial color="#c8b894" roughness={0.6} metalness={0.1} />
+          </mesh>
         </group>
       ))}
+
+      {/* Clerestory windows: tall pointed-arch stained glass above the arcade.
+          One per bay, both sides. Emissive so they read even in shadow. */}
+      {bayPositions.map((z, bi) => {
+        const hue = (bi * 47) % 360;
+        return (
+          <group key={`clere-${bi}`}>
+            {[-1, 1].map((side) => (
+              <group
+                key={`cw-${side}`}
+                position={[
+                  side * (NAVE_HALF_WIDTH + AISLE_WIDTH - 0.15),
+                  VAULT_APEX - 6,
+                  z,
+                ]}
+                rotation={[0, side > 0 ? -Math.PI / 2 : Math.PI / 2, 0]}
+              >
+                <mesh>
+                  <planeGeometry args={[2.4, 4.2]} />
+                  <meshStandardMaterial
+                    color={`hsl(${hue}, 58%, 55%)`}
+                    emissive={`hsl(${hue}, 70%, 45%)`}
+                    emissiveIntensity={1.4}
+                    side={THREE.DoubleSide}
+                  />
+                </mesh>
+                {/* Lead tracery — three narrow vertical mullions */}
+                {[-0.7, 0, 0.7].map((mx, mi) => (
+                  <mesh key={`mul-${mi}`} position={[mx, 0, 0.02]}>
+                    <boxGeometry args={[0.08, 4.2, 0.04]} />
+                    <meshStandardMaterial color="#1a1208" roughness={0.7} />
+                  </mesh>
+                ))}
+              </group>
+            ))}
+          </group>
+        );
+      })}
 
       {/* ——— Altar area at the front of the nave (toward -z) ————————————— */}
       <group position={[0, 0, -NAVE_LENGTH / 2 + 4]}>
@@ -298,23 +377,29 @@ export function Cathedral() {
         <pointLight position={[3, 3, 2]} intensity={8} distance={9} color="#ffd089" />
       </group>
 
-      {/* Rose window at the rear wall */}
+      {/* Rose window at the rear wall — segment counts bumped, plus a
+          second inner ring of 12 smaller panes for density. */}
       <group position={[0, VAULT_APEX - 10, NAVE_LENGTH / 2 - 0.1]}>
         {/* outer stone ring */}
         <mesh>
-          <ringGeometry args={[4, 5, 32]} />
+          <ringGeometry args={[4, 5, 64]} />
           <meshStandardMaterial color="#5a4d3b" roughness={0.9} side={THREE.DoubleSide} />
         </mesh>
-        {/* stained-glass spokes */}
+        {/* inner stone ring divider */}
+        <mesh position={[0, 0, 0.02]}>
+          <ringGeometry args={[1.9, 2.1, 48]} />
+          <meshStandardMaterial color="#4a3d2b" roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+        {/* stained-glass outer spokes */}
         {roseColors.map((c, i) => {
           const a = (i / roseColors.length) * Math.PI * 2;
           return (
             <mesh
               key={`pane-${i}`}
-              position={[Math.cos(a) * 2.5, Math.sin(a) * 2.5, 0.05]}
+              position={[Math.cos(a) * 2.9, Math.sin(a) * 2.9, 0.05]}
               rotation={[0, 0, a]}
             >
-              <circleGeometry args={[1.3, 16]} />
+              <circleGeometry args={[1.3, 32]} />
               <meshStandardMaterial
                 color={c}
                 emissive={c}
@@ -325,9 +410,29 @@ export function Cathedral() {
             </mesh>
           );
         })}
+        {/* inner ring of 12 small panes */}
+        {Array.from({ length: 12 }).map((_, i) => {
+          const a = (i / 12) * Math.PI * 2;
+          const c = roseColors[i % roseColors.length];
+          return (
+            <mesh
+              key={`inner-pane-${i}`}
+              position={[Math.cos(a) * 1.35, Math.sin(a) * 1.35, 0.04]}
+            >
+              <circleGeometry args={[0.45, 24]} />
+              <meshStandardMaterial
+                color={c}
+                emissive={c}
+                emissiveIntensity={2.0}
+                roughness={0.35}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          );
+        })}
         {/* Central rosette */}
         <mesh position={[0, 0, 0.08]}>
-          <circleGeometry args={[1.2, 24]} />
+          <circleGeometry args={[1.2, 48]} />
           <meshStandardMaterial
             color="#ffe2a3"
             emissive="#ffc56b"
@@ -336,6 +441,126 @@ export function Cathedral() {
           />
         </mesh>
       </group>
+
+      {/* Pipe organ: a rank of brass pipes flanking the rose window on the
+          rear wall gallery. Two side towers + a lower central rank = 23 pipes
+          across. Emissive highlights to catch the rose-window light. */}
+      <group position={[0, VAULT_APEX - 15, NAVE_LENGTH / 2 - 1.6]}>
+        {/* Organ case backdrop */}
+        <mesh position={[0, 0, -0.2]}>
+          <boxGeometry args={[13, 7, 0.4]} />
+          <meshStandardMaterial color="#3a2a18" roughness={0.8} />
+        </mesh>
+        {/* Central flat rank — 11 medium pipes */}
+        {Array.from({ length: 11 }).map((_, i) => {
+          const x = (i - 5) * 0.55;
+          const h = 4 + Math.abs(i - 5) * 0.15;
+          return (
+            <mesh key={`pipe-c-${i}`} position={[x, -0.5 + h / 2, 0]}>
+              <cylinderGeometry args={[0.22, 0.24, h, 28]} />
+              <meshStandardMaterial
+                color="#d9b463"
+                metalness={0.85}
+                roughness={0.22}
+                emissive="#8a6820"
+                emissiveIntensity={0.25}
+              />
+            </mesh>
+          );
+        })}
+        {/* Left tower — 6 larger pipes */}
+        {Array.from({ length: 6 }).map((_, i) => {
+          const x = -4.8 + i * 0.4;
+          const h = 6 - Math.abs(i - 2.5) * 0.3;
+          return (
+            <mesh key={`pipe-l-${i}`} position={[x, -0.2 + h / 2, 0]}>
+              <cylinderGeometry args={[0.3, 0.33, h, 28]} />
+              <meshStandardMaterial
+                color="#d9b463"
+                metalness={0.85}
+                roughness={0.22}
+                emissive="#8a6820"
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+          );
+        })}
+        {/* Right tower — mirrored */}
+        {Array.from({ length: 6 }).map((_, i) => {
+          const x = 4.8 - i * 0.4;
+          const h = 6 - Math.abs(i - 2.5) * 0.3;
+          return (
+            <mesh key={`pipe-r-${i}`} position={[x, -0.2 + h / 2, 0]}>
+              <cylinderGeometry args={[0.3, 0.33, h, 28]} />
+              <meshStandardMaterial
+                color="#d9b463"
+                metalness={0.85}
+                roughness={0.22}
+                emissive="#8a6820"
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+          );
+        })}
+        {/* Decorative top cornice */}
+        <mesh position={[0, 3.8, 0.1]}>
+          <boxGeometry args={[13.2, 0.5, 0.5]} />
+          <meshStandardMaterial color="#8a6820" metalness={0.5} roughness={0.4} />
+        </mesh>
+      </group>
+
+      {/* Tall floor candelabra along the nave — 2 per bay between the pillars.
+          Adds warm point-light punctuation the length of the church. */}
+      {bayPositions.filter((_, i) => i % 2 === 0).map((z, bi) => (
+        <group key={`fl-cand-${bi}`}>
+          {[-1, 1].map((side) => (
+            <group
+              key={`fc-${side}`}
+              position={[side * (NAVE_HALF_WIDTH - 1.6), 0, z]}
+            >
+              {/* Tripod base */}
+              <mesh position={[0, 0.1, 0]}>
+                <cylinderGeometry args={[0.35, 0.45, 0.2, 24]} />
+                <meshStandardMaterial color="#4a3820" metalness={0.5} roughness={0.5} />
+              </mesh>
+              {/* Shaft */}
+              <mesh position={[0, 1.2, 0]} castShadow>
+                <cylinderGeometry args={[0.07, 0.09, 2.2, 24]} />
+                <meshStandardMaterial
+                  color="#d9b463"
+                  metalness={0.8}
+                  roughness={0.25}
+                />
+              </mesh>
+              {/* Cup at top */}
+              <mesh position={[0, 2.35, 0]}>
+                <cylinderGeometry args={[0.18, 0.1, 0.12, 24]} />
+                <meshStandardMaterial color="#d9b463" metalness={0.8} roughness={0.25} />
+              </mesh>
+              {/* Candle */}
+              <mesh position={[0, 2.55, 0]}>
+                <cylinderGeometry args={[0.06, 0.06, 0.3, 16]} />
+                <meshStandardMaterial color="#fff5d6" roughness={0.7} />
+              </mesh>
+              {/* Flame */}
+              <mesh position={[0, 2.78, 0]}>
+                <sphereGeometry args={[0.08, 16, 16]} />
+                <meshStandardMaterial
+                  color="#fff1b0"
+                  emissive="#ffb14a"
+                  emissiveIntensity={5}
+                />
+              </mesh>
+              <pointLight
+                position={[0, 2.8, 0]}
+                intensity={5}
+                distance={7}
+                color="#ffb066"
+              />
+            </group>
+          ))}
+        </group>
+      ))}
 
       {/* Rear & front walls */}
       {[-1, 1].map((side) => (

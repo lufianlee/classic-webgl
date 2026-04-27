@@ -1,9 +1,28 @@
 'use client';
 
+import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import type { SpacePreset } from '@/lib/api';
 import type { RealtimeFeatures } from '@/lib/realtime';
 import { PITCH_CLASSES } from '@/lib/realtime';
+
+function FoldToggle({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="text-[11px] opacity-60 hover:opacity-100 px-1 leading-none"
+      title={collapsed ? 'expand' : 'collapse'}
+    >
+      {collapsed ? '▸' : '▾'}
+    </button>
+  );
+}
 
 interface Props {
   features: RealtimeFeatures;
@@ -35,6 +54,10 @@ export function HUD({
   const isPlaying = useAppStore((s) => s.isPlaying);
   const preset = useAppStore((s) => s.preset);
 
+  const [liveCollapsed, setLiveCollapsed] = useState(false);
+  const [spaceCollapsed, setSpaceCollapsed] = useState(false);
+  const [transportCollapsed, setTransportCollapsed] = useState(false);
+
   const liveKey = features.keyConfidence > 0.1 ? features.key : fallbackKey;
   const liveMode = features.keyConfidence > 0.1 ? features.mode : fallbackMode;
   const liveBpm = features.bpm > 0 ? features.bpm : Math.round(fallbackTempo);
@@ -44,7 +67,17 @@ export function HUD({
       {/* Top-left: live metadata + chroma strip */}
       <div className="hud-corner top-6 left-6 max-w-sm">
         <div className="parchment-panel px-5 py-4">
-          <div className="text-[10px] tracking-[0.3em] opacity-60 mb-1">LIVE ANALYSIS</div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="text-[10px] tracking-[0.3em] opacity-60">LIVE ANALYSIS</div>
+            <div className="ml-auto">
+              <FoldToggle
+                collapsed={liveCollapsed}
+                onToggle={() => setLiveCollapsed((c) => !c)}
+              />
+            </div>
+          </div>
+          {!liveCollapsed && (
+          <>
           <div className="gilt-underline w-full my-2" />
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px] items-baseline">
             <dt className="opacity-60">Key</dt>
@@ -95,29 +128,41 @@ export function HUD({
               ))}
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
 
       {/* Top-right: space picker */}
       <div className="hud-corner top-6 right-6">
         <div className="parchment-panel px-4 py-3">
-          <div className="text-[10px] tracking-[0.3em] opacity-60 mb-2">SPACE</div>
-          <div className="flex flex-col gap-1.5">
-            {(Object.keys(PRESET_LABELS) as SpacePreset[]).map((p) => (
-              <button
-                key={p}
-                className="gilt-btn text-left"
-                onClick={() => onChangePreset(p)}
-                style={{
-                  opacity: preset === p ? 1 : 0.55,
-                  borderColor:
-                    preset === p ? 'var(--gilt)' : 'rgba(177, 139, 74, 0.35)',
-                }}
-              >
-                {PRESET_LABELS[p]}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="text-[10px] tracking-[0.3em] opacity-60">SPACE</div>
+            <div className="ml-auto">
+              <FoldToggle
+                collapsed={spaceCollapsed}
+                onToggle={() => setSpaceCollapsed((c) => !c)}
+              />
+            </div>
           </div>
+          {!spaceCollapsed && (
+            <div className="flex flex-col gap-1.5">
+              {(Object.keys(PRESET_LABELS) as SpacePreset[]).map((p) => (
+                <button
+                  key={p}
+                  className="gilt-btn text-left"
+                  onClick={() => onChangePreset(p)}
+                  style={{
+                    opacity: preset === p ? 1 : 0.55,
+                    borderColor:
+                      preset === p ? 'var(--gilt)' : 'rgba(177, 139, 74, 0.35)',
+                  }}
+                >
+                  {PRESET_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -130,13 +175,19 @@ export function HUD({
           <button className="gilt-btn" onClick={onTogglePlay}>
             {isPlaying ? '‖  Pause' : '▶  Play'}
           </button>
-          <div className="text-[11px] opacity-70 leading-snug">
-            Click the scene to walk &nbsp;·&nbsp; W A S D &nbsp;·&nbsp; Mouse to look &nbsp;·&nbsp;
-            ESC to free cursor
-          </div>
+          {!transportCollapsed && (
+            <div className="text-[11px] opacity-70 leading-snug">
+              Click the scene to walk &nbsp;·&nbsp; W A S D &nbsp;·&nbsp; Mouse to look &nbsp;·&nbsp;
+              ESC to free cursor
+            </div>
+          )}
           <button className="gilt-btn" onClick={onExit}>
             Exit
           </button>
+          <FoldToggle
+            collapsed={transportCollapsed}
+            onToggle={() => setTransportCollapsed((c) => !c)}
+          />
         </div>
       </div>
     </>

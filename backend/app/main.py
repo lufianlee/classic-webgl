@@ -120,7 +120,7 @@ class CommentaryRequest(BaseModel):
             "(which uses AWS_BEARER_TOKEN_BEDROCK on the server)."
         ),
     )
-    max_tokens: int = Field(2048, ge=256, le=8192)
+    max_tokens: int = Field(4096, ge=256, le=8192)
 
 
 def _safe_extension(url: str, content_type: str | None) -> str:
@@ -344,9 +344,16 @@ async def commentary(req: CommentaryRequest) -> dict[str, Any]:
             max_tokens=req.max_tokens,
         )
     except RuntimeError as e:
+        logger.exception("Commentary generation failed")
         raise HTTPException(status_code=502, detail=str(e)) from e
     except ValueError as e:
+        logger.exception("Commentary parsing failed")
         raise HTTPException(status_code=500, detail=f"Parse error: {e}") from e
+    except Exception as e:  # noqa: BLE001
+        logger.exception("Commentary unexpected failure")
+        raise HTTPException(
+            status_code=500, detail=f"Commentary failed: {type(e).__name__}: {e}"
+        ) from e
 
     return {
         "overview": result.overview,
