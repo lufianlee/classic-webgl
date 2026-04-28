@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { usePBRMaterial } from '../pbr';
+import { PeriodFigure } from '../objects/PeriodFigure';
 
 /**
  * Gothic cathedral: long nave, pointed-arch arcades, ribbed vault ceiling,
@@ -376,6 +377,26 @@ export function Cathedral() {
         <pointLight position={[-3, 3, 2]} intensity={8} distance={9} color="#ffd089" />
         <pointLight position={[3, 3, 2]} intensity={8} distance={9} color="#ffd089" />
       </group>
+
+      {/* ——— Chorister figures in procession before the altar ——————————
+          Three medieval choristers in cassock + surplice, hooded so faces
+          are never resolved. A shallow arc facing the altar (-z direction),
+          lit from behind by the altar spot and from above by the clerestory
+          — reads as a living silhouette in a stone vault. */}
+      {[
+        { x: 0, z: -22.0, r: Math.PI, phase: 0 },
+        { x: -1.9, z: -21.3, r: Math.PI - 0.18, phase: 1.2 },
+        { x: 1.9, z: -21.3, r: Math.PI + 0.18, phase: 2.4 },
+      ].map((f, i) => (
+        <PeriodFigure
+          key={`chor-${i}`}
+          variant="medieval"
+          position={[f.x, 0, f.z]}
+          rotation={[0, f.r, 0]}
+          phase={f.phase}
+          sway={0.9}
+        />
+      ))}
 
       {/* Rose window at the rear wall — segment counts bumped, plus a
           second inner ring of 12 smaller panes for density. */}

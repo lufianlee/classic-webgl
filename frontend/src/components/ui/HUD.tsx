@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/store';
 import type { SpacePreset } from '@/lib/api';
 import type { RealtimeFeatures } from '@/lib/realtime';
 import { PITCH_CLASSES } from '@/lib/realtime';
+import { QUALITY_PROFILES, type QualityTier } from '@/lib/quality';
 
 function FoldToggle({
   collapsed,
@@ -53,9 +54,12 @@ export function HUD({
 }: Props) {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const preset = useAppStore((s) => s.preset);
+  const quality = useAppStore((s) => s.quality);
+  const setQuality = useAppStore((s) => s.setQuality);
 
   const [liveCollapsed, setLiveCollapsed] = useState(false);
   const [spaceCollapsed, setSpaceCollapsed] = useState(false);
+  const [qualityCollapsed, setQualityCollapsed] = useState(false);
   const [transportCollapsed, setTransportCollapsed] = useState(false);
 
   const liveKey = features.keyConfidence > 0.1 ? features.key : fallbackKey;
@@ -133,8 +137,8 @@ export function HUD({
         </div>
       </div>
 
-      {/* Top-right: space picker */}
-      <div className="hud-corner top-6 right-6">
+      {/* Top-right: space picker + quality selector */}
+      <div className="hud-corner top-6 right-6 flex flex-col gap-3">
         <div className="parchment-panel px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <div className="text-[10px] tracking-[0.3em] opacity-60">SPACE</div>
@@ -161,6 +165,47 @@ export function HUD({
                   {PRESET_LABELS[p]}
                 </button>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Render quality tier — persisted across reloads. Exhibition mode
+            turns on the full cinematic pipeline; Performance drops to a
+            1.0 DPR / no-AO pipeline for integrated GPUs. */}
+        <div className="parchment-panel px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="text-[10px] tracking-[0.3em] opacity-60">
+              QUALITY
+            </div>
+            <div className="ml-auto">
+              <FoldToggle
+                collapsed={qualityCollapsed}
+                onToggle={() => setQualityCollapsed((c) => !c)}
+              />
+            </div>
+          </div>
+          {!qualityCollapsed && (
+            <div className="flex flex-col gap-1.5">
+              {(Object.keys(QUALITY_PROFILES) as QualityTier[]).map((q) => {
+                const p = QUALITY_PROFILES[q];
+                return (
+                  <button
+                    key={q}
+                    className="gilt-btn text-left"
+                    onClick={() => setQuality(q)}
+                    title={p.description}
+                    style={{
+                      opacity: quality === q ? 1 : 0.55,
+                      borderColor:
+                        quality === q
+                          ? 'var(--gilt)'
+                          : 'rgba(177, 139, 74, 0.35)',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { usePBRMaterial } from '../pbr';
 import { GrandPiano } from '../objects/GrandPiano';
+import { PeriodFigure } from '../objects/PeriodFigure';
+import { SalonChair } from '../objects/SalonChair';
 
 /**
  * 18th-century aristocratic salon. Short reverb (~0.6s), intimate scale.
@@ -126,34 +128,33 @@ export function Salon() {
         scale={1.0}
       />
 
-      {/* Four chairs in a loose arc */}
+      {/* Singer figure — 18th-century court-dress silhouette (wide panniers,
+           gilt stomacher, powdered wig), standing beside the piano as if
+           performing the evening's aria. Faces the chair arc (+z). The
+           warm candelabra + window light picks out the drape folds and the
+           gilt trim reads against the deep plum robe. */}
+      <PeriodFigure
+        variant="baroque"
+        position={[1.4, 0, 0.4]}
+        rotation={[0, 0.2, 0]}
+        phase={0.6}
+        sway={0.85}
+      />
+
+      {/* Four Louis XV cabriole-legged salon chairs in a loose arc facing
+           the piano. Each chair turns so its back faces outward — yaw
+           computed from the position vector so chairs face center (0,0). */}
       {[
         [2, 0, -1],
         [2.5, 0, 1],
         [1, 0, 2.5],
         [-1, 0, 2.8],
       ].map(([x, , z], i) => (
-        <group key={`chair-${i}`} position={[x, 0, z]} rotation={[0, -Math.atan2(z, x), 0]}>
-          <mesh position={[0, 0.4, 0]} castShadow>
-            <boxGeometry args={[0.55, 0.1, 0.55]} />
-            <meshStandardMaterial color="#8a3232" roughness={0.75} />
-          </mesh>
-          <mesh position={[0, 0.85, 0.22]} castShadow>
-            <boxGeometry args={[0.55, 0.9, 0.08]} />
-            <meshStandardMaterial color="#5a1f1f" roughness={0.75} />
-          </mesh>
-          {[
-            [-0.23, -0.23],
-            [0.23, -0.23],
-            [-0.23, 0.23],
-            [0.23, 0.23],
-          ].map(([lx, lz], k) => (
-            <mesh key={`leg-${i}-${k}`} position={[lx, 0.2, lz]} castShadow>
-              <cylinderGeometry args={[0.04, 0.04, 0.4, 6]} />
-              <meshStandardMaterial color="#2a1608" />
-            </mesh>
-          ))}
-        </group>
+        <SalonChair
+          key={`chair-${i}`}
+          position={[x as number, 0, z as number]}
+          rotation={[0, Math.atan2(-(x as number), -(z as number)), 0]}
+        />
       ))}
 
       {/* Tall pier mirror on one wall */}

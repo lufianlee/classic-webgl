@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { usePBRMaterial } from '../pbr';
 import { GrandPiano } from '../objects/GrandPiano';
+import { PeriodFigure } from '../objects/PeriodFigure';
+import { VelvetSeats, type SeatTransform } from '../objects/VelvetSeats';
 
 /**
  * 19th-century "shoebox" concert hall. Medium reverb (~1.8s).
@@ -65,52 +67,20 @@ export function ConcertHall() {
     }
   }
 
-  // Seats — rows of dark-red velvet chairs.
-  const seats: JSX.Element[] = [];
+  // Seats — curved-silhouette velvet theater chairs, built as an
+  // InstancedMesh bank so 120 chairs cost 8 draw calls instead of 600+.
+  // Each chair faces the stage (-z direction) so yaw = 0.
+  const seatTransforms: SeatTransform[] = [];
   const seatRows = 12;
   const seatsPerRow = 10;
   for (let r = 0; r < seatRows; r++) {
     for (let s = 0; s < seatsPerRow; s++) {
       const z = -HALL_LENGTH / 2 + 10 + r * 1.6;
       const x = (s - (seatsPerRow - 1) / 2) * 1.3;
-      // Seat cushion
-      seats.push(
-        <mesh key={`seat-${r}-${s}`} position={[x, 0.45, z]} castShadow>
-          <boxGeometry args={[0.9, 0.9, 1.0]} />
-          <meshStandardMaterial color="#5a1f1f" roughness={0.8} />
-        </mesh>,
-      );
-      // Rounded backrest (cylinder = smooth top edge)
-      seats.push(
-        <mesh key={`back-${r}-${s}`} position={[x, 1.3, z + 0.4]} castShadow>
-          <boxGeometry args={[0.9, 1.4, 0.15]} />
-          <meshStandardMaterial color="#4a1818" roughness={0.8} />
-        </mesh>,
-      );
-      // Rounded top cap on the backrest for a carved-chair silhouette
-      seats.push(
-        <mesh
-          key={`back-cap-${r}-${s}`}
-          position={[x, 2.0, z + 0.4]}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <cylinderGeometry args={[0.1, 0.1, 0.9, 20]} />
-          <meshStandardMaterial color="#6a2424" roughness={0.75} />
-        </mesh>,
-      );
-      // Armrests
-      [-0.48, 0.48].map((ax, ai) =>
-        seats.push(
-          <mesh
-            key={`arm-${r}-${s}-${ai}`}
-            position={[x + ax, 1.0, z + 0.25]}
-            rotation={[0, 0, Math.PI / 2]}
-          >
-            <cylinderGeometry args={[0.06, 0.06, 0.75, 16]} />
-            <meshStandardMaterial color="#3a1010" roughness={0.7} />
-          </mesh>,
-        ),
-      );
+      // Stage is at -z; chairs face it, so local +z points toward the back
+      // of the chair → backrest offset is + sin/cos(yaw)*k. Yaw=π rotates
+      // the chair to face -z (stage).
+      seatTransforms.push({ position: [x, 0, z], yaw: Math.PI });
     }
   }
 
@@ -460,6 +430,18 @@ export function ConcertHall() {
         scale={1.35}
       />
 
+      {/* Soloist figure — 19th-century tailcoat silhouette, standing beside
+           the piano on stage and facing the audience (+z). Sits directly
+           under the warm stage spotlight so the top-hat silhouette reads
+           cleanly against the stage shell. */}
+      <PeriodFigure
+        variant="romantic"
+        position={[2.3, 1, -HALL_LENGTH / 2 + 7.3]}
+        rotation={[0, -0.1, 0]}
+        phase={0}
+        sway={0.7}
+      />
+
       {/* Cello on a stand — stage left */}
       <group position={[-4, 1, -HALL_LENGTH / 2 + 5.5]} rotation={[0, 0.3, 0]}>
         {/* Body */}
@@ -574,7 +556,8 @@ export function ConcertHall() {
         </group>
       ))}
 
-      {seats}
+      <VelvetSeats seats={seatTransforms} />
+
 
       {/* Large central chandelier — 3 tiers of crystals instead of 1 ring.
           Segment counts bumped everywhere. */}

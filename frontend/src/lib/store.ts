@@ -1,7 +1,30 @@
 import { create } from 'zustand';
 import type { AnalysisResult, CommentaryResponse, SpacePreset } from './api';
+import { DEFAULT_QUALITY, QUALITY_PROFILES, type QualityTier } from './quality';
 
 type CommentaryStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+const QUALITY_STORAGE_KEY = 'spatium:quality';
+
+function loadPersistedQuality(): QualityTier {
+  if (typeof window === 'undefined') return DEFAULT_QUALITY;
+  try {
+    const v = window.localStorage.getItem(QUALITY_STORAGE_KEY);
+    if (v && v in QUALITY_PROFILES) return v as QualityTier;
+  } catch {
+    // localStorage blocked (private mode / embedded browser) — fall through.
+  }
+  return DEFAULT_QUALITY;
+}
+
+function persistQuality(q: QualityTier): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(QUALITY_STORAGE_KEY, q);
+  } catch {
+    // swallow — persisting is best-effort.
+  }
+}
 
 interface AppState {
   analysis: AnalysisResult | null;
@@ -10,6 +33,10 @@ interface AppState {
   isPlaying: boolean;
   loadingStatus: 'idle' | 'fetching' | 'analyzing' | 'ready' | 'error';
   errorMessage: string | null;
+
+  // Rendering quality tier — persisted to localStorage so exhibition PCs keep
+  // the setting across reloads.
+  quality: QualityTier;
 
   // Commentary
   commentary: CommentaryResponse | null;
@@ -22,6 +49,7 @@ interface AppState {
   setIsPlaying: (v: boolean) => void;
   setLoadingStatus: (s: AppState['loadingStatus']) => void;
   setErrorMessage: (m: string | null) => void;
+  setQuality: (q: QualityTier) => void;
   setCommentary: (c: CommentaryResponse | null) => void;
   setCommentaryStatus: (s: CommentaryStatus) => void;
   setCommentaryError: (e: string | null) => void;
@@ -36,6 +64,8 @@ export const useAppStore = create<AppState>((set) => ({
   loadingStatus: 'idle',
   errorMessage: null,
 
+  quality: loadPersistedQuality(),
+
   commentary: null,
   commentaryStatus: 'idle',
   commentaryError: null,
@@ -46,6 +76,10 @@ export const useAppStore = create<AppState>((set) => ({
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setLoadingStatus: (loadingStatus) => set({ loadingStatus }),
   setErrorMessage: (errorMessage) => set({ errorMessage }),
+  setQuality: (quality) => {
+    persistQuality(quality);
+    set({ quality });
+  },
   setCommentary: (commentary) => set({ commentary }),
   setCommentaryStatus: (commentaryStatus) => set({ commentaryStatus }),
   setCommentaryError: (commentaryError) => set({ commentaryError }),

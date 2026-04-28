@@ -1,14 +1,20 @@
 'use client';
 
-import { Canvas } from '@react-three/fiber';
-import { Suspense, useMemo } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Suspense, useEffect, useMemo } from 'react';
 import {
   Bloom,
+  ChromaticAberration,
+  DepthOfField,
   EffectComposer,
+  Noise,
   SMAA,
   Vignette,
 } from '@react-three/postprocessing';
+import { N8AO } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three-stdlib';
 import { TrebleParticles } from './TrebleParticles';
 import { Cathedral } from './spaces/Cathedral';
 import { ConcertHall } from './spaces/ConcertHall';
@@ -17,7 +23,8 @@ import { WalkControls } from './WalkControls';
 import type { AudioEngine } from '@/lib/audio';
 import type { SpacePreset } from '@/lib/api';
 import type { RealtimeFeatures } from '@/lib/realtime';
-import { keyToColor } from '@/lib/store';
+import { keyToColor, useAppStore } from '@/lib/store';
+import { QUALITY_PROFILES, type QualityProfile } from '@/lib/quality';
 
 interface Props {
   engine: AudioEngine | null;
@@ -42,6 +49,54 @@ const WALK_BOUNDS: Record<SpacePreset, { radius: number }> = {
   salon: { radius: 6.5 },
 };
 
+/**
+ * Procedural image-based lighting. RoomEnvironment generates a lit
+ * scene that we bake into a PMREM and assign to scene.environment —
+ * instant PBR-correct reflections and soft fill without loading any
+ * HDRI asset. Runs once per quality-profile change.
+ */
+function SceneEnvironment({ intensity }: { intensity: number }) {
+  const { scene, gl } = useThree();
+
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    pmrem.compileEquirectangularShader();
+    // RoomEnvironment in three-stdlib is a factory function, not a class —
+    // it builds a small Scene with stylized area lights we bake into PMREM.
+    const room = RoomEnvironment();
+    const envMap = pmrem.fromScene(room, 0.04).texture;
+    scene.environment = envMap;
+    scene.environmentIntensity = intensity;
+
+    return () => {
+      scene.environment = null;
+      envMap.dispose();
+      pmrem.dispose();
+    };
+  }, [scene, gl, intensity]);
+
+  return null;
+}
+
+/**
+ * Applies imperative renderer settings that don't have R3F JSX props —
+ * shadow map type, tone-mapping exposure, output color space.
+ */
+function RendererTuning({ profile }: { profile: QualityProfile }) {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = profile.exposure;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.shadowMap.enabled = profile.shadows.enabled;
+    gl.shadowMap.type = profile.shadows.type;
+    gl.shadowMap.needsUpdate = true;
+  }, [gl, profile]);
+
+  return null;
+}
+
 export function SpatialScene({
   engine,
   preset,
@@ -50,6 +105,9 @@ export function SpatialScene({
   fallbackKey,
   fallbackMode,
 }: Props) {
+  const quality = useAppStore((s) => s.quality);
+  const profile = QUALITY_PROFILES[quality];
+
   // Use real-time key if confident, otherwise fall back to the backend's
   // whole-track estimate so colors don't swing wildly during silence.
   const activeKey =
@@ -76,21 +134,50 @@ export function SpatialScene({
     return [0, 1.6, 4] as const;
   }, [preset]);
 
+  // DPR → R3F takes either a single number or [min, max] range. 'native'
+  // means "don't clamp — let the browser's devicePixelRatio through" which
+  // we implement by reading from window at mount (SSR-safe default = 2).
+  const dpr = useMemo((): number | [number, number] => {
+    if (profile.dpr === 'native') {
+      if (typeof window === 'undefined') return [1, 2];
+      return Math.min(window.devicePixelRatio, 3);
+    }
+    return profile.dpr;
+  }, [profile.dpr]);
+
+  // GPU antialiasing for the main render target. We prefer MSAA on the
+  // EffectComposer (via `multisampling` below) because SMAA alone can't
+  // catch subpixel crawling on the brick normals at exhibition DPR.
+  const baseParticleDensity =
+    preset === 'cathedral' ? 3300 : preset === 'concert_hall' ? 1800 : 750;
+  const particleDensity = Math.round(
+    baseParticleDensity * profile.particleDensityScale,
+  );
+
+  // React key on the EffectComposer — changing the pipeline shape (e.g.
+  // adding/removing DOF) between quality tiers is safest as a full remount.
+  const composerKey = `${profile.id}-${preset}`;
+
   return (
     <Canvas
       shadows
+      dpr={dpr}
       camera={{ fov: preset === 'salon' ? 58 : 68, near: 0.05, far: 200, position: cameraStart }}
       gl={{
-        antialias: false, // postprocessing SMAA handles it
+        antialias: profile.msaa === 0, // only when MSAA is disabled at composer level
         alpha: false,
         powerPreference: 'high-performance',
         toneMapping: THREE.ACESFilmicToneMapping,
-      }}
-      onCreated={({ gl }) => {
-        gl.toneMappingExposure = 1.05;
+        stencil: false,
+        depth: true,
       }}
       style={{ position: 'absolute', inset: 0 }}
     >
+      <RendererTuning profile={profile} />
+      {profile.ibl.enabled && (
+        <SceneEnvironment intensity={profile.ibl.intensity} />
+      )}
+
       <color attach="background" args={[fogConfig.color]} />
       <fog attach="fog" args={[fogConfig.color, fogConfig.near, fogConfig.far]} />
 
@@ -100,16 +187,16 @@ export function SpatialScene({
         {preset === 'salon' && <Salon />}
 
         {/* Particles are scaled per-space so they don't overpower smaller rooms.
-            Keyed by preset so switching spaces fully re-mounts the points +
+            Keyed by preset+quality so switching fully re-mounts the points +
             shaderMaterial — keeps the uniform refs the GPU reads from in sync
             with the useFrame closure writing to them. */}
         <TrebleParticles
-          key={preset}
+          key={`${preset}-${profile.id}`}
           engine={engine}
           color={palette.accent}
           radius={WALK_BOUNDS[preset].radius * 0.8}
           height={preset === 'cathedral' ? 24 : preset === 'concert_hall' ? 12 : 5}
-          density={preset === 'cathedral' ? 3300 : preset === 'concert_hall' ? 1800 : 750}
+          density={particleDensity}
         />
       </Suspense>
 
@@ -119,18 +206,70 @@ export function SpatialScene({
         bounds={WALK_BOUNDS[preset].radius}
       />
 
-      {/* Postprocessing: Bloom on emissive highlights (candles, stained glass,
-           chandelier, particles); Vignette darkens the edges for focus;
-           SMAA cleans up the jaggies from the sharp brick/parquet normals. */}
-      <EffectComposer multisampling={0}>
-        <Bloom
-          intensity={preset === 'cathedral' ? 0.9 : preset === 'salon' ? 0.6 : 0.55}
-          luminanceThreshold={0.5}
-          luminanceSmoothing={0.25}
-          mipmapBlur
-        />
-        <Vignette eskil={false} offset={0.15} darkness={0.85} />
-        <SMAA />
+      {/* Postprocessing stack — shape varies by quality tier.
+          Children are collected into an array so we can conditionally
+          include each pass; EffectComposer's typing rejects null children
+          so we filter falsy entries out. */}
+      <EffectComposer
+        key={composerKey}
+        multisampling={profile.msaa}
+        enableNormalPass={profile.ao.enabled}
+      >
+        {(
+          [
+            profile.ao.enabled && (
+              <N8AO
+                key="n8ao"
+                aoRadius={profile.ao.aoRadius}
+                intensity={profile.ao.intensity}
+                aoSamples={profile.ao.aoSamples}
+                denoiseSamples={profile.ao.denoiseSamples}
+                quality={profile.ao.quality}
+                halfRes={profile.ao.halfRes}
+              />
+            ),
+            profile.bloom.enabled && (
+              <Bloom
+                key="bloom"
+                intensity={profile.bloom.intensity}
+                luminanceThreshold={profile.bloom.luminanceThreshold}
+                luminanceSmoothing={0.25}
+                mipmapBlur={profile.bloom.mipmapBlur}
+              />
+            ),
+            profile.dof.enabled && (
+              <DepthOfField
+                key="dof"
+                focusDistance={profile.dof.focusDistance}
+                focalLength={profile.dof.focalLength}
+                bokehScale={profile.dof.bokehScale}
+              />
+            ),
+            <Vignette key="vig" eskil={false} offset={0.15} darkness={0.85} />,
+            profile.chromaticAberration.enabled && (
+              <ChromaticAberration
+                key="ca"
+                offset={
+                  new THREE.Vector2(
+                    profile.chromaticAberration.offset,
+                    profile.chromaticAberration.offset,
+                  )
+                }
+                radialModulation={true}
+                modulationOffset={0.35}
+              />
+            ),
+            profile.grain.enabled && (
+              <Noise
+                key="grain"
+                opacity={profile.grain.opacity}
+                blendFunction={BlendFunction.OVERLAY}
+                premultiply={false}
+              />
+            ),
+            profile.smaa && <SMAA key="smaa" />,
+          ].filter(Boolean) as JSX.Element[]
+        )}
       </EffectComposer>
     </Canvas>
   );
