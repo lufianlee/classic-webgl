@@ -69,7 +69,9 @@ export function ConcertHall() {
 
   // Seats — curved-silhouette velvet theater chairs, built as an
   // InstancedMesh bank so 120 chairs cost 8 draw calls instead of 600+.
-  // Each chair faces the stage (-z direction) so yaw = 0.
+  // VelvetSeats convention: with yaw=0, the backrest sits at +z relative
+  // to the seat center (so the chair faces -z). Stage is at -z, so yaw=0
+  // is exactly what we want — chairs face the stage.
   const seatTransforms: SeatTransform[] = [];
   const seatRows = 12;
   const seatsPerRow = 10;
@@ -77,10 +79,7 @@ export function ConcertHall() {
     for (let s = 0; s < seatsPerRow; s++) {
       const z = -HALL_LENGTH / 2 + 10 + r * 1.6;
       const x = (s - (seatsPerRow - 1) / 2) * 1.3;
-      // Stage is at -z; chairs face it, so local +z points toward the back
-      // of the chair → backrest offset is + sin/cos(yaw)*k. Yaw=π rotates
-      // the chair to face -z (stage).
-      seatTransforms.push({ position: [x, 0, z], yaw: Math.PI });
+      seatTransforms.push({ position: [x, 0, z], yaw: 0 });
     }
   }
 

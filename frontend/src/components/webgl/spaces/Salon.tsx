@@ -142,8 +142,9 @@ export function Salon() {
       />
 
       {/* Four Louis XV cabriole-legged salon chairs in a loose arc facing
-           the piano. Each chair turns so its back faces outward — yaw
-           computed from the position vector so chairs face center (0,0). */}
+           the piano. SalonChair's yaw=0 has the backrest at +z, so the
+           chair faces -z. Same rotation formula as the original box-chair
+           layout — empirically turns the arc inward toward the piano. */}
       {[
         [2, 0, -1],
         [2.5, 0, 1],
@@ -153,7 +154,7 @@ export function Salon() {
         <SalonChair
           key={`chair-${i}`}
           position={[x as number, 0, z as number]}
-          rotation={[0, Math.atan2(-(x as number), -(z as number)), 0]}
+          rotation={[0, -Math.atan2(z as number, x as number), 0]}
         />
       ))}
 
