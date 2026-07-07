@@ -26,6 +26,30 @@ import * as THREE from 'three';
 
 export type FigureVariant = 'medieval' | 'romantic' | 'baroque';
 
+/**
+ * Radial ripple on a lathe skirt so the fabric hangs in vertical folds
+ * instead of reading as a smooth plastic shell. Fold depth fades toward
+ * the waist (top of the lathe) where the fabric is gathered.
+ */
+function addDrapeFolds(g: THREE.BufferGeometry, depth: number): void {
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  g.computeBoundingBox();
+  const maxY = g.boundingBox?.max.y ?? 1;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const angle = Math.atan2(z, x);
+    const fade = 1 - Math.min(1, Math.max(0, y / maxY)); // 1 at hem → 0 at waist
+    const ripple = 1 + Math.sin(angle * 13) * depth * fade;
+    pos.setX(i, x * ripple);
+    pos.setZ(i, z * ripple);
+  }
+  pos.needsUpdate = true;
+}
+
 interface Props {
   variant: FigureVariant;
   position?: [number, number, number];
@@ -102,16 +126,17 @@ export function PeriodFigure({
   const skirtGeom = useMemo(() => {
     let points: THREE.Vector2[];
     if (variant === 'baroque') {
-      // Panniers: very wide at hip, flaring outward then dropping to the hem.
+      // Court gown: full but believable — falls from the waist in a bell,
+      // not a balloon. (The old 1.1m-radius panniers read as a sphere from
+      // camera height and broke the photoreal look.)
       points = [
         new THREE.Vector2(0.02, 0.0),
-        new THREE.Vector2(0.85, 0.02),
-        new THREE.Vector2(1.05, 0.25),
-        new THREE.Vector2(1.1, 0.55),
-        new THREE.Vector2(0.95, 0.85),
-        new THREE.Vector2(0.7, 1.0),
-        new THREE.Vector2(0.45, 1.1),
-        new THREE.Vector2(0.3, 1.18),
+        new THREE.Vector2(0.6, 0.02),
+        new THREE.Vector2(0.7, 0.28),
+        new THREE.Vector2(0.66, 0.6),
+        new THREE.Vector2(0.5, 0.9),
+        new THREE.Vector2(0.34, 1.08),
+        new THREE.Vector2(0.26, 1.18),
       ];
     } else if (variant === 'medieval') {
       // Cassock: straight column, minimal flare.
@@ -136,7 +161,8 @@ export function PeriodFigure({
         new THREE.Vector2(0.26, 1.15),
       ];
     }
-    const g = new THREE.LatheGeometry(points, 48);
+    const g = new THREE.LatheGeometry(points, 64);
+    addDrapeFolds(g, variant === 'baroque' ? 0.035 : 0.025);
     g.computeVertexNormals();
     return g;
   }, [variant]);
@@ -147,13 +173,14 @@ export function PeriodFigure({
     if (variant !== 'baroque') return null;
     const points = [
       new THREE.Vector2(0.02, 0.0),
-      new THREE.Vector2(0.55, 0.02),
-      new THREE.Vector2(0.7, 0.3),
-      new THREE.Vector2(0.72, 0.6),
-      new THREE.Vector2(0.55, 0.9),
-      new THREE.Vector2(0.38, 1.05),
+      new THREE.Vector2(0.42, 0.02),
+      new THREE.Vector2(0.5, 0.3),
+      new THREE.Vector2(0.48, 0.6),
+      new THREE.Vector2(0.38, 0.9),
+      new THREE.Vector2(0.28, 1.05),
     ];
-    const g = new THREE.LatheGeometry(points, 40);
+    const g = new THREE.LatheGeometry(points, 48);
+    addDrapeFolds(g, 0.02);
     g.computeVertexNormals();
     return g;
   }, [variant]);
@@ -497,16 +524,17 @@ export function PeriodFigure({
                 metalness={0.0}
               />
             </mesh>
-            {/* Two side curls (the classic "buckles") */}
+            {/* Two side curls (the classic "buckles") — small and tucked
+                against the wig so they read as rolled hair, not ears */}
             {[-1, 1].map((side) => (
               <mesh
                 key={`curl-${side}`}
-                position={[side * 0.19, -0.02, 0.02]}
-                rotation={[0, 0, side * -0.3]}
+                position={[side * 0.15, -0.08, 0.03]}
+                rotation={[0.2, 0, side * -0.5]}
               >
-                <torusGeometry args={[0.07, 0.05, 12, 20]} />
+                <torusGeometry args={[0.045, 0.03, 12, 20]} />
                 <meshStandardMaterial
-                  color="#e8dcc7"
+                  color="#ded2bc"
                   roughness={0.95}
                   metalness={0.0}
                 />

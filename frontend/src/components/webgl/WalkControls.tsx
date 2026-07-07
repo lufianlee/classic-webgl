@@ -116,12 +116,15 @@ export function WalkControls({ engine, getRealtime, bounds }: Props) {
     quat.setFromEuler(new THREE.Euler(pitch.current, yaw.current, 0, 'YXZ'));
     camera.quaternion.copy(quat);
 
-    // Feed the listener's world position + forward vector to the audio
-    // graph so the PannerNode spatializes the dry signal correctly.
+    // Feed the listener's world position + full look direction (yaw AND
+    // pitch) to the audio graph — tilting your head up in the nave rotates
+    // the sound field just like it would in a real space. The engine also
+    // derives distance-based air absorption and reverb balance from this.
     if (engine) {
+      const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
       engine.setListener(
         [camera.position.x, camera.position.y, camera.position.z],
-        [-Math.sin(yaw.current), 0, -Math.cos(yaw.current)],
+        [look.x, look.y, look.z],
       );
     }
   });

@@ -19,6 +19,11 @@ export interface CommentarySettings {
 // made the commentary panel look like it had disappeared.
 const STORAGE_KEY = 'spatium:commentary:v1';
 
+// One-time migration marker: commentary (Bedrock 곡 해설) is opt-in now.
+// Browsers that stored enabled=true before this policy get reset to off
+// exactly once; re-enabling afterwards sticks as usual.
+const DEFAULT_OFF_MIGRATION_KEY = 'spatium:commentary:default-off:v1';
+
 const DEFAULT_SETTINGS: CommentarySettings = {
   enabled: false,
   provider: 'bedrock',
@@ -32,9 +37,20 @@ function readStorage(): CommentarySettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
+    if (!raw) {
+      // Nothing stored yet — defaults are already off; just mark the
+      // migration done so a later explicit enable isn't reset.
+      window.localStorage.setItem(DEFAULT_OFF_MIGRATION_KEY, '1');
+      return DEFAULT_SETTINGS;
+    }
     const parsed = JSON.parse(raw) as Partial<CommentarySettings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const merged = { ...DEFAULT_SETTINGS, ...parsed };
+    if (!window.localStorage.getItem(DEFAULT_OFF_MIGRATION_KEY)) {
+      merged.enabled = false;
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      window.localStorage.setItem(DEFAULT_OFF_MIGRATION_KEY, '1');
+    }
+    return merged;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -60,6 +76,7 @@ export function useCommentarySettings(): {
       const next = { ...prev, ...partial };
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        window.localStorage.setItem(DEFAULT_OFF_MIGRATION_KEY, '1');
       } catch {
         // ignore quota / private-mode errors
       }

@@ -122,10 +122,13 @@ export function SpatialScene({
     };
   }, [activeKey, activeMode]);
 
+  // Fog is depth-haze, not a blackout: far planes sit beyond the room's
+  // longest sightline so architecture (especially the cathedral vault ~26m
+  // overhead) stays readable instead of dissolving into the void.
   const fogConfig = useMemo(() => {
-    if (preset === 'cathedral') return { color: '#0c0a12', near: 14, far: 70 };
-    if (preset === 'concert_hall') return { color: '#140e08', near: 10, far: 40 };
-    return { color: '#1a120a', near: 6, far: 22 };
+    if (preset === 'cathedral') return { color: '#16121d', near: 18, far: 130 };
+    if (preset === 'concert_hall') return { color: '#171009', near: 12, far: 60 };
+    return { color: '#1a120a', near: 8, far: 30 };
   }, [preset]);
 
   const cameraStart = useMemo(() => {

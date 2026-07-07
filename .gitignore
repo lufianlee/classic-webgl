@@ -8,3 +8,4 @@ backend/cache/
 .env
 .env.local
 frontend/tsconfig.tsbuildinfo
+.gstack/
